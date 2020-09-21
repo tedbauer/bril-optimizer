@@ -68,6 +68,8 @@ def lvn_block(block):
 
             value_list = [instr["op"]]
             value_list += [var2num[arg] for arg in instr["args"]]
+            if instr["op"] == "call":
+                value_list += instr["funcs"]
             value = tuple(value_list)
 
             if "dest" in instr:
