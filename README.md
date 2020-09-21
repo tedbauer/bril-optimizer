@@ -52,7 +52,7 @@ Here's a table of results of running the optimizations with [Brench][brenchlink]
 | fizz-buzz | baseline | 3652 |
 | fizz-buzz | myopt | 3252 |
 
-About half of the benchmarks had the same dynamic instruction count after the optimizations, but the other half had reductions between 8 and 46752, most of these values in the teens.
+About half of the benchmarks had the same dynamic instruction count after the optimizations, but the other half had reductions between 8 and 46752, most of these values in the 10-100 range.
 
 ## Notes
 - This optimization assumes that there are no values called `___value___`.
