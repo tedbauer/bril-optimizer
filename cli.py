@@ -27,11 +27,33 @@ def form_blocks(func_body):
     return blocks
                 
 
+def used_later(dest, start, block):
+    for instr in block[start:]:
+        if "dest" in instr:
+            if instr["dest"] == dest:
+                return True
+    return False
+
+
+def used(var, block):
+    for instr in block:
+        if "dest" in instr:
+            if instr["dest"] == var:
+                return True
+    return False
+
+
+def gen_fresh_name(prefix, block):
+    i = 0
+    while used(prefix + str(i), block): i += 1
+    return prefix + str(i)
+
+
 def lvn_block(block):
     table = collections.OrderedDict()
     var2num = dict()
 
-    for instr in block:
+    for idx, instr in enumerate(block):
         if instr["op"] == "const":
             value = tuple(["const", instr["value"]])
             table[value] = instr["dest"]
@@ -41,19 +63,26 @@ def lvn_block(block):
             value_list += [var2num[arg] for arg in instr["args"]]
             value = tuple(value_list)
 
+            if "dest" in instr:
+                old_name = instr["dest"]
+            else:
+                old_name = None # never will be used
+
             if value in table:
                 instr["op"] = "id"
                 instr["args"] = [table[value]]
             else:
                 if "dest" in instr:
+                    if used_later(instr["dest"], idx, block):
+                        instr["dest"] = gen_fresh_name("x", block)
                     table[value] = instr["dest"]
-                    if instr["op"] != "const":
-                        for i, arg in enumerate(instr["args"]):
-                            instr["args"][i] = table[list(table)[var2num[arg]]]
+                if instr["op"] != "const":
+                    for i, arg in enumerate(instr["args"]):
+                        instr["args"][i] = table[list(table)[var2num[arg]]]
 
             if "dest" in instr:
                 num = list(table).index(value)
-                var2num[instr["dest"]] = num
+                var2num[old_name] = num
         #print(table)
         #print(var2num)
 
@@ -120,10 +149,12 @@ def dce1(prog):
     while dce(old_prog) != old_prog: old_prog = dce(old_prog)
     return old_prog
 
+
 def dce2(prog):
     old_prog = copy.deepcopy(prog)
-    while dce(old_prog) != old_prog: old_prog = tdce(old_prog)
+    while tdce(old_prog) != old_prog: old_prog = tdce(old_prog)
     return old_prog
+
 
 if __name__ == "__main__":
     prog = json.loads(sys.stdin.read())
