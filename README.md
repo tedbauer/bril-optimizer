@@ -7,7 +7,7 @@ Run basic LVN followed by TDCE:
 
 ## Evaluation
 
-Here's a table of results of running the optimizations with [Brench][brenchlink] (`brench benchmark.toml`):
+Here's a table of results of running the optimizations with [Brench][brenchlink] (`brench benchmark.toml`), assuming `bril` is cloned in an adjacent directory:
 
 | benchmark | run | result |
 | --- | --- | --- |
