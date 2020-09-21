@@ -1,6 +1,7 @@
 import json
 import sys
 import copy
+import collections
 
 TERMINATORS = [ "jmp", "br", "ret" ]
 
@@ -26,7 +27,49 @@ def form_blocks(func_body):
     return blocks
                 
 
-def dce2(old_prog):
+def lvn_block(block):
+    table = collections.OrderedDict()
+    var2num = dict()
+
+    for instr in block:
+        if instr["op"] == "const":
+            value = tuple(["const", instr["value"]])
+            table[value] = instr["dest"]
+            var2num[instr["dest"]] = list(table).index(value)
+        if "args" in instr:
+            value_list = [instr["op"]]
+            value_list += [var2num[arg] for arg in instr["args"]]
+            value = tuple(value_list)
+
+            if value in table:
+                instr["op"] = "id"
+                instr["args"] = [table[value]]
+            else:
+                if "dest" in instr:
+                    table[value] = instr["dest"]
+                    if instr["op"] != "const":
+                        for i, arg in enumerate(instr["args"]):
+                            instr["args"][i] = table[list(table)[var2num[arg]]]
+
+            if "dest" in instr:
+                num = list(table).index(value)
+                var2num[instr["dest"]] = num
+        #print(table)
+        #print(var2num)
+
+
+def lvn(prog):
+    for func in prog["functions"]:
+        blocks = form_blocks(func)
+
+        for block in blocks:
+            lvn_block(block)
+    
+        func["instrs"] = [instr for instr in block for block in blocks]
+
+
+
+def tdce(old_prog):
     last_def = dict()
     prog = copy.deepcopy(old_prog)
     for func in prog["functions"]:
@@ -77,8 +120,12 @@ def dce1(prog):
     while dce(old_prog) != old_prog: old_prog = dce(old_prog)
     return old_prog
 
+def dce2(prog):
+    old_prog = copy.deepcopy(prog)
+    while dce(old_prog) != old_prog: old_prog = tdce(old_prog)
+    return old_prog
 
 if __name__ == "__main__":
     prog = json.loads(sys.stdin.read())
-    prog2 = dce2(prog)
-    print(json.dumps(prog2))
+    lvn(prog)
+    print(json.dumps(dce2(dce(prog))))
