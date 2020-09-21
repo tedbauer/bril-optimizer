@@ -27,8 +27,8 @@ def form_blocks(func_body):
     return blocks
                 
 
-def used_later(dest, start, block):
-    for instr in block[start:]:
+def overwritten_later(dest, start, block):
+    for instr in block[start+1:]:
         if "dest" in instr:
             if instr["dest"] == dest:
                 return True
@@ -80,7 +80,7 @@ def lvn_block(block):
                 instr["args"] = [table[value]]
             else:
                 if "dest" in instr:
-                    if used_later(instr["dest"], idx, block):
+                    if overwritten_later(instr["dest"], idx, block):
                         instr["dest"] = gen_fresh_name("x", block)
                     table[value] = instr["dest"]
                 if instr["op"] != "const":
