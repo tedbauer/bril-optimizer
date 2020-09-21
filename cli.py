@@ -55,7 +55,7 @@ def lvn_block(block):
 
     for idx, instr in enumerate(block):
         if "op" in instr and instr["op"] == "const":
-            value = tuple(["const", instr["value"]])
+            value = tuple(["const", str(instr["value"])])
             table[value] = instr["dest"]
             var2num[instr["dest"]] = list(table).index(value)
         if "args" in instr:

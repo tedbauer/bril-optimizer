@@ -1,6 +1,8 @@
 # Bril Optimizer
 ## Usage
 
+Run basic LVN followed by TDCE:
+
     cat <benchmark.json> | python3 cli.py
 
 ## Notes
