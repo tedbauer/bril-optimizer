@@ -56,6 +56,6 @@ About half of the benchmarks had the same dynamic instruction count after the op
 
 ## Notes
 - This optimization assumes that there are no values called `___value___`.
-- Excluded `mat-mul` benchmark as the optimization doesn't handle pointer types
+- Excluded `mat-mul` benchmark in the evaluation table because the optimization doesn't handle pointer types
 
 [brenchlink]: https://capra.cs.cornell.edu/bril/tools/brench.html
