@@ -37,8 +37,6 @@ Here's a table of results of running the optimizations with [Brench][brenchlink]
 | euclid | myopt | 502 |
 | binary-fmt | baseline | 100 |
 | binary-fmt | myopt | 100 |
-| mat-mul | baseline | 1990407 |
-| mat-mul | myopt | timeout |
 | gcd | baseline | 46 |
 | gcd | myopt | 46 |
 | fib | baseline | 121 |
@@ -58,5 +56,6 @@ About half of the benchmarks had the same dynamic instruction count after the op
 
 ## Notes
 - This optimization assumes that there are no values called `___value___`.
+- Excluded `mat-mul` benchmark as the optimization doesn't handle pointer types
 
 [brenchlink]: https://capra.cs.cornell.edu/bril/tools/brench.html
