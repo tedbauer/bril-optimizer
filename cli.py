@@ -54,11 +54,18 @@ def lvn_block(block):
     var2num = dict()
 
     for idx, instr in enumerate(block):
-        if instr["op"] == "const":
+        if "op" in instr and instr["op"] == "const":
             value = tuple(["const", instr["value"]])
             table[value] = instr["dest"]
             var2num[instr["dest"]] = list(table).index(value)
         if "args" in instr:
+            # If there are unrecognized args, create entries for them
+            for arg in instr["args"]:
+                if arg not in var2num:
+                    v = tuple(["___value___", arg])
+                    table[v] = arg
+                    var2num[arg] = list(table).index(v)
+
             value_list = [instr["op"]]
             value_list += [var2num[arg] for arg in instr["args"]]
             value = tuple(value_list)
@@ -83,8 +90,6 @@ def lvn_block(block):
             if "dest" in instr:
                 num = list(table).index(value)
                 var2num[old_name] = num
-        #print(table)
-        #print(var2num)
 
 
 def lvn(prog):
@@ -93,9 +98,8 @@ def lvn(prog):
 
         for block in blocks:
             lvn_block(block)
-    
-        func["instrs"] = [instr for instr in block for block in blocks]
 
+        func["instrs"] = [instr for block in blocks for instr in block]
 
 
 def tdce(old_prog):
@@ -121,7 +125,7 @@ def tdce(old_prog):
             for idx in sorted(to_delete, reverse=True):
                 del block[idx]
 
-        func["instrs"] = [instr for instr in block for block in blocks]
+        func["instrs"] = [instr for block in blocks for instr in block]
     return prog
 
 
@@ -152,11 +156,12 @@ def dce1(prog):
 
 def dce2(prog):
     old_prog = copy.deepcopy(prog)
-    while tdce(old_prog) != old_prog: old_prog = tdce(old_prog)
+    while tdce(old_prog) != old_prog:
+        old_prog = tdce(old_prog)
     return old_prog
 
 
 if __name__ == "__main__":
     prog = json.loads(sys.stdin.read())
     lvn(prog)
-    print(json.dumps(dce2(dce(prog))))
+    print(json.dumps(dce1(dce2(prog))))

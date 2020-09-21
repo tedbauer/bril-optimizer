@@ -1,0 +1,12 @@
+@main {
+  a: int = const 4;
+  b: int = const 2;
+.label:
+  c: int = const 6;
+  x: int = add a b;
+  print x;
+  x: int = add a c;
+  print x;
+  y: int = add a b;
+  print y;
+}
