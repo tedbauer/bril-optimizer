@@ -7,7 +7,7 @@ Run basic LVN followed by TDCE:
 
 ## Evaluation
 
-Here's a table of results of running the optimizations with [Brench][brenchlink] (`brench benchmark.toml`), assuming `bril` is cloned in an adjacent directory:
+Here's a table of results of running the optimizations with [Brench][brenchlink] (`brench benchmark.toml`), assuming `bril` is cloned in an adjacent directory. Brench checks that the output of each run for a benchmark is the same to provide some confidence that the implementation is correct.
 
 | benchmark | run | result |
 | --- | --- | --- |
@@ -52,10 +52,10 @@ Here's a table of results of running the optimizations with [Brench][brenchlink]
 | fizz-buzz | baseline | 3652 |
 | fizz-buzz | myopt | 3252 |
 
-About half of the benchmarks had the same dynamic instruction count after the optimizations, but the other half had reductions between 8 and 46752, most of these values in the teens.
+About half of the benchmarks had the same dynamic instruction count after the optimizations, but the other half had reductions between 8 and 46752, most of these values in the 10-100 range.
 
 ## Notes
 - This optimization assumes that there are no values called `___value___`.
-- Excluded `mat-mul` benchmark as the optimization doesn't handle pointer types
+- Excluded `mat-mul` benchmark in the evaluation table because the optimization doesn't handle pointer types
 
 [brenchlink]: https://capra.cs.cornell.edu/bril/tools/brench.html
