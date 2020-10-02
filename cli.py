@@ -6,12 +6,104 @@ import collections
 TERMINATORS = [ "jmp", "br", "ret" ]
 
 
+def find_preds(bname, cfg):
+    preds = []
+    for name in cfg:
+        if bname in cfg[name]:
+            preds.append(name)
+    return preds
+
+
+def reaching_defs(blocks, cfg):
+
+    c = 0
+    name2def = dict()
+
+    # TODO: stick this in a function
+    name2block = collections.OrderedDict()
+    for block in blocks:
+        inames = []
+        for instr in block:
+            if "label" not in instr:
+                iname = "i" + str(c)
+                name2def[iname] = instr
+                inames.append(iname)
+                c += 1
+        if 'label' in block[0]:
+            name2block[block[0]['label']] = inames
+        else:
+            name2block[gen_fresh_block_name(name2block)] = inames
+
+    in_ = {list(name2block)[0]: set()}
+    out = dict()
+    for name in name2block: out[name] = set()
+
+    worklist = list(name2block.keys())
+    while worklist:
+        s = set()
+        bname = worklist.pop()
+        for pred in find_preds(bname, cfg):
+            s = s.union(out[pred])
+        in_[bname] = s
+
+        new_defs = set(name2block[bname])
+        vars_written_to = []
+        for i in new_defs:
+            if "dest" in name2def[i]:
+                vars_written_to.append(name2def[i]["dest"])
+
+        kills = set()
+        for i in in_[bname]:
+            if "dest" in name2def[i] and name2def[i]["dest"] in vars_written_to:
+                kills.add(i)
+
+        old_out = out.copy()
+        out[bname] = new_defs.union(in_[bname].difference(kills))
+        if out != old_out:
+            worklist += cfg[bname]
+
+    print(out)
+    for i in name2def:
+        print(i + ": " + str(name2def[i]))
+
+
+def gen_fresh_block_name(m):
+    c = 0
+    name = "x" + str(c)
+    while name in m: c += 1
+    return name
+
+
+def gen_cfg(blocks):
+    name2block = collections.OrderedDict()
+
+    for block in blocks:
+        if 'label' in block[0]:
+            name2block[block[0]['label']] = block
+        else:
+            name2block[gen_fresh_block_name(name2block)] = block
+
+    cfg = dict()
+    for i, name in enumerate(name2block):
+        block = name2block[name]
+        if block[-1]["op"] in {"jmp", "br"}:
+            cfg[name] = block[-1]["labels"]
+        elif block[-1]["op"] == "ret":
+            cfg[name] = []
+        else:
+            if i < len(name2block) - 1:
+                cfg[name] = [list(name2block.keys())[i+1]]
+            else:
+                cfg[name] = []
+    
+    return cfg
+
+
 def form_blocks(func_body):
     blocks = []
     curr_block = []
     
     for instr in func_body["instrs"]:
-
         if "op" in instr:
             curr_block.append(instr)
 
@@ -20,7 +112,8 @@ def form_blocks(func_body):
                 curr_block = []
 
         else:
-            blocks.append(curr_block)
+            if len(curr_block) > 0:
+                blocks.append(curr_block)
             curr_block = [instr]
 
     blocks.append(curr_block)
@@ -158,12 +251,19 @@ def dce1(prog):
 
 def dce2(prog):
     old_prog = copy.deepcopy(prog)
-    while tdce(old_prog) != old_prog:
-        old_prog = tdce(old_prog)
+    while tdce(old_prog) != old_prog: old_prog = tdce(old_prog)
     return old_prog
 
 
 if __name__ == "__main__":
     prog = json.loads(sys.stdin.read())
-    lvn(prog)
-    print(json.dumps(dce1(dce2(prog))))
+    if sys.argv[1] == "lvn":
+        lvn(prog)
+        print(json.dumps(dce1(dce2(prog))))
+    elif sys.argv[1] == "reachingdefs":
+        blocks = []
+        for func in prog["functions"]:
+            blocks += form_blocks(func)
+
+        reaching_defs(blocks, gen_cfg(blocks))
+
