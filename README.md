@@ -3,7 +3,11 @@
 
 Run basic LVN followed by TDCE:
 
-    cat <benchmark.json> | python3 cli.py
+    cat <benchmark.json> | python3 cli.py lvn
+
+Run "find reaching definitions":
+
+    cat <benchmark.json> | python3 cli.py reachingdefs
 
 ## Evaluation
 
