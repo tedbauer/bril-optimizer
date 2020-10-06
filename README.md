@@ -1,4 +1,7 @@
-# Bril Optimizer
+# Brilt (Bril Tool)
+
+`brilt` analyzes and optimizes Bril programs.
+
 ## Usage
 
 Run basic LVN followed by TDCE:

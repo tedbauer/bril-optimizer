@@ -116,7 +116,7 @@ def form_blocks(func_body):
                 blocks.append(curr_block)
             curr_block = [instr]
 
-    blocks.append(curr_block)
+    if len(curr_block) > 0: blocks.append(curr_block)
     return blocks
                 
 
@@ -254,6 +254,12 @@ def dce2(prog):
     while tdce(old_prog) != old_prog: old_prog = tdce(old_prog)
     return old_prog
 
+
+def blockify(prog):
+    blocks = []
+    for func in prog["functions"]:
+        blocks += form_blocks(func)
+    return blocks
 
 if __name__ == "__main__":
     prog = json.loads(sys.stdin.read())
