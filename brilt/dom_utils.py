@@ -20,12 +20,17 @@ def find_doms(cfg):
     return dom
 
 
+def find_strict_doms(cfg):
+    d = find_doms(cfg)
+    for v in d: d[v].remove(v)
+    return d
+
+
 def gen_dom_tree(cfg, doms):
     dom_tree = dict()
     for v in cfg: dom_tree[v] = set()
 
-    strict_doms = deepcopy(doms)
-    for v in strict_doms: strict_doms[v].remove(v)
+    strict_doms = find_strict_doms(cfg)
 
     for a in cfg:
         a_dominates = set()
@@ -41,3 +46,15 @@ def gen_dom_tree(cfg, doms):
             if imm_doms: dom_tree[a].add(b)
 
     return dom_tree
+
+
+def gen_dom_frontier(cfg, a):
+    doms = find_doms(cfg)
+    frontier = set()
+    for b in cfg:
+        if a in doms[b]:
+            continue
+        for pred in find_preds(b, cfg):
+            if a in doms[pred]:
+                frontier.add(b)
+    return frontier
