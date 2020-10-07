@@ -1,0 +1,13 @@
+@main {
+  b: bool = const true;
+  a: int = const 5;
+  br b .here .there;
+.here:
+  a: int = const 4;
+  jmp .exit;
+.there:
+  print a;
+  a: int = const 7;
+.exit:
+  print a;
+}

@@ -3,6 +3,9 @@ from brilt.dom_utils import gen_dom_frontier, gen_dom_tree, find_doms
 
 import json
 
+# TODO:
+# 2. Handle multiple functions
+# 3. Handle args
 
 def gen_fresh_name(prefix, blocks):
     c = 0
@@ -27,7 +30,7 @@ def rename(bname, block, blocks, stack, dom_tree, cfg, name2block, varz):
     for instr in block:
         if "args" in instr:
             for i, arg in enumerate(instr["args"]):
-                if arg != "cond" and instr["op"] != "phi":
+                if instr["op"] != "phi":
                     instr["args"][i] = stack[arg][-1]
 
         if "dest" in instr:
@@ -37,7 +40,6 @@ def rename(bname, block, blocks, stack, dom_tree, cfg, name2block, varz):
             instr["dest"] = new_name
             stack[old_name].append(new_name)
 
-    # do phi node stuff here
     for s in cfg[bname]:
         for instr in name2block[s]:
             if "op" in instr and instr["op"] == "phi":
@@ -55,6 +57,10 @@ def to_ssa(prog):
     blocks = blockify(prog)
     cfg = gen_cfg(blocks)
     name2block = gen_name2block(blocks)
+
+    for bname in name2block:
+        if "label" not in name2block[bname][0]:
+            name2block[bname].insert(0, {"label": bname})
 
     dom_tree = gen_dom_tree(cfg, find_doms(cfg))
 
@@ -83,12 +89,13 @@ def to_ssa(prog):
                         "type": "int",
                         "orig_name": v
                     }
-                    # todo: if no label in block, insert at pos 1
                     name2block[bname].insert(1, phi_node)
 
     stack = dict()
     for v in varz: stack[v] = []
-    rename("entry", name2block["entry"], blocks, stack, dom_tree, cfg, name2block, varz)
+    for arg in prog["functions"][0]["args"]:
+        stack[arg["name"]] = [arg["name"]]
+    rename(list(name2block)[0], name2block[list(name2block)[0]], blocks, stack, dom_tree, cfg, name2block, varz)
 
     for bname in name2block:
         for instr in name2block[bname]:
