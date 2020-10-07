@@ -96,9 +96,9 @@ def gen_cfg(blocks):
     cfg = dict()
     for i, name in enumerate(name2block):
         block = name2block[name]
-        if block[-1]["op"] in {"jmp", "br"}:
+        if "op" in block[-1] and block[-1]["op"] in {"jmp", "br"}:
             cfg[name] = block[-1]["labels"]
-        elif block[-1]["op"] == "ret":
+        elif "op" in block[-1] and block[-1]["op"] == "ret":
             cfg[name] = []
         else:
             if i < len(name2block) - 1:

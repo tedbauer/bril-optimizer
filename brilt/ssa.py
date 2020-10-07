@@ -1,11 +1,11 @@
-from brilt.cli import gen_cfg, blockify, gen_name2block
+from brilt.cli import gen_cfg, blockify, gen_name2block, form_blocks
 from brilt.dom_utils import gen_dom_frontier, gen_dom_tree, find_doms
 
 import json
 
 # TODO:
-# 2. Handle multiple functions
-# 3. Handle args
+# Convert out of SSA
+# handle different types for phi nodes
 
 def gen_fresh_name(prefix, blocks):
     c = 0
@@ -43,8 +43,11 @@ def rename(bname, block, blocks, stack, dom_tree, cfg, name2block, varz):
     for s in cfg[bname]:
         for instr in name2block[s]:
             if "op" in instr and instr["op"] == "phi":
-                instr["args"].append(stack[instr["orig_name"]][-1])
-                instr["labels"].append(bname)
+                if len(stack[instr["orig_name"]]) > 0:
+                    instr["args"].append(stack[instr["orig_name"]][-1])
+                    instr["labels"].append(bname)
+                else:
+                    instr["undefined"] = True
 
     for b in dom_tree[bname]:
         rename(b, name2block[b], blocks, stack, dom_tree, cfg, name2block, varz)
@@ -53,61 +56,93 @@ def rename(bname, block, blocks, stack, dom_tree, cfg, name2block, varz):
         for _ in range(pop_times[v]): stack[v].pop()
 
 
-def to_ssa(prog):
-    blocks = blockify(prog)
-    cfg = gen_cfg(blocks)
-    name2block = gen_name2block(blocks)
+def block_uses(block, v):
+    for instr in block:
+        if "args" in instr:
+            for arg in instr["args"]:
+                if arg == v: return True
+    return False
 
-    for bname in name2block:
-        if "label" not in name2block[bname][0]:
-            name2block[bname].insert(0, {"label": bname})
 
-    dom_tree = gen_dom_tree(cfg, find_doms(cfg))
-
-    varz = set()
-    defs = dict()
-    for bname in name2block:
-        for instr in name2block[bname]:
+def find_type(blocks, v):
+    for block in blocks:
+        for instr in block:
             if "dest" in instr:
-                varz.add(instr["dest"])
-                if instr["dest"] in defs: defs[instr["dest"]].add(bname)
-                else: defs[instr["dest"]] = set([bname])
+                return instr["type"]
+    assert False
 
-    for v in varz:
-        for d in defs[v]:
-            for bname in gen_dom_frontier(cfg, d):
-                has_phi = False
-                for instr in name2block[bname]:
-                    if "dest" in instr and instr["dest"] == v and instr["op"] == "phi":
-                        has_phi = True
-                if not has_phi:
-                    phi_node = {
-                        "args": [],
-                        "dest": v,
-                        "labels": [],
-                        "op": "phi",
-                        "type": "int",
-                        "orig_name": v
-                    }
-                    name2block[bname].insert(1, phi_node)
 
-    stack = dict()
-    for v in varz: stack[v] = []
-    for arg in prog["functions"][0]["args"]:
-        stack[arg["name"]] = [arg["name"]]
-    rename(list(name2block)[0], name2block[list(name2block)[0]], blocks, stack, dom_tree, cfg, name2block, varz)
+def to_ssa(prog):
 
-    for bname in name2block:
-        for instr in name2block[bname]:
-            if "phi" in instr:
-                del name2block[bname]["orig_name"]
+    func_blocks = []
+    for i, func in enumerate(prog["functions"]):
+        blocks = form_blocks(func)
+        cfg = gen_cfg(blocks)
+        name2block = gen_name2block(blocks)
 
-    new_prog = {
-        "functions": [{
-            "name": "main",
-            "args": [{"name": "cond", "type": "bool"}],
-            "instrs": [instr for block in blocks for instr in block]
-        }]
-    }
-    return json.dumps(new_prog)
+        for bname in name2block:
+            if "label" not in name2block[bname][0]:
+                name2block[bname].insert(0, {"label": bname})
+
+        dom_tree = gen_dom_tree(cfg, find_doms(cfg))
+
+        varz = set()
+        defs = dict()
+        for bname in name2block:
+            for instr in name2block[bname]:
+                if "dest" in instr:
+                    varz.add(instr["dest"])
+                    if instr["dest"] in defs: defs[instr["dest"]].add(bname)
+                    else: defs[instr["dest"]] = set([bname])
+
+        for v in varz:
+            need_to_add = True
+            while need_to_add:
+                add_to_defs = set()
+                for d in defs[v]:
+                    for bname in gen_dom_frontier(cfg, d):
+                        has_phi = False
+                        for instr in name2block[bname]:
+                            if "dest" in instr and instr["dest"] == v and instr["op"] == "phi":
+                                has_phi = True
+                        if not has_phi: #and block_uses(name2block[bname], v):
+                            v_type = find_type(blocks, v)
+                            phi_node = {
+                                "args": [],
+                                "dest": v,
+                                "labels": [],
+                                "op": "phi",
+                                "type": "int",
+                                "orig_name": v,
+                                "undefined": False
+                            }
+                            name2block[bname].insert(1, phi_node)
+                            if bname not in defs[v]: add_to_defs.add(bname)
+                if len(add_to_defs) == 0: need_to_add = False
+                else: defs[v] = defs[v].union(add_to_defs)
+
+        stack = dict()
+        for v in varz: stack[v] = []
+        if "args" in prog["functions"][i]:
+            for arg in prog["functions"][i]["args"]:
+                stack[arg["name"]] = [arg["name"]]
+        rename(list(name2block)[0], name2block[list(name2block)[0]], blocks, stack, dom_tree, cfg, name2block, varz)
+
+        for i, block in enumerate(blocks):
+            orig = block
+            result = list(filter(lambda i: not ("op" in i and i["op"] == "phi" and i["undefined"]), block))
+            blocks[i] = result
+
+        for bname in name2block:
+            for instr in name2block[bname]:
+                if "phi" in instr:
+                    del name2block[bname]["orig_name"]
+                    del name2block[bname]["undefined"]
+
+        func_blocks.append(blocks)
+
+    for i, func in enumerate(prog["functions"]):
+        func["instrs"] = [instr for block in func_blocks[i] for instr in block]
+
+    return json.dumps(prog)
 
