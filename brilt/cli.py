@@ -74,6 +74,16 @@ def gen_fresh_block_name(m):
     return name
 
 
+def gen_name2block(blocks):
+    name2block = collections.OrderedDict()
+    for block in blocks:
+        if 'label' in block[0]:
+            name2block[block[0]['label']] = block
+        else:
+            name2block[gen_fresh_block_name(name2block)] = block
+    return name2block
+
+
 def gen_cfg(blocks):
     name2block = collections.OrderedDict()
 
