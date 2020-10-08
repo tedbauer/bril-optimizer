@@ -33,10 +33,12 @@ def rename(bname, block, blocks, stack, dom_tree, cfg, name2block, varz):
                 if instr["op"] != "phi":
                     instr["args"][i] = stack[arg][-1]
 
-        if "dest" in instr:
+        if "dest" in instr and not ("undefined" in instr and instr["undefined"]):
             old_name = instr["dest"]
             pop_times[old_name] += 1
             new_name = gen_fresh_name(old_name, blocks)
+            #print("overwriting old name " + old_name + " with new name " + new_name)
+            #if new_name == "v29.1": print(block)
             instr["dest"] = new_name
             stack[old_name].append(new_name)
 
@@ -73,7 +75,6 @@ def find_type(blocks, v):
 
 
 def to_ssa(prog):
-
     func_blocks = []
     for i, func in enumerate(prog["functions"]):
         blocks = form_blocks(func)
@@ -105,7 +106,7 @@ def to_ssa(prog):
                         for instr in name2block[bname]:
                             if "dest" in instr and instr["dest"] == v and instr["op"] == "phi":
                                 has_phi = True
-                        if not has_phi: #and block_uses(name2block[bname], v):
+                        if not has_phi:
                             v_type = find_type(blocks, v)
                             phi_node = {
                                 "args": [],
