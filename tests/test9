@@ -3,5 +3,6 @@
   b: int = const 2;
   a: int = add a b;
   b: int = add a b;
+  c: int = id b;
   print b;
 }

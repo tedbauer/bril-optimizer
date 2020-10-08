@@ -1,4 +1,4 @@
-from brilt.cli import gen_cfg, blockify, gen_name2block, form_blocks
+from brilt.cli import gen_cfg, blockify, gen_name2block, form_blocks, find_preds
 from brilt.dom_utils import gen_dom_frontier, gen_dom_tree, find_doms
 
 import json
@@ -72,6 +72,38 @@ def find_type(blocks, v):
             if "dest" in instr:
                 return instr["type"]
     assert False
+
+
+def from_ssa(prog):
+    func_blocks = []
+    for func in prog["functions"]:
+        blocks = form_blocks(func)
+        name2block = gen_name2block(blocks)
+        cfg = gen_cfg(blocks)
+        for bname in name2block:
+            for instr in name2block[bname]:
+                if "op" in instr and instr["op"] == "phi":
+                    preds = find_preds(bname, cfg)
+                    for pred in preds:
+                        if pred in instr["labels"]:
+                            name2block[pred].append({
+                                "op": "id",
+                                "dest": instr["dest"],
+                                "type": instr["type"],
+                                "args": [instr["args"][instr["labels"].index(pred)]]
+                            })
+        blocks2 = []
+        for bname in name2block:
+            b = name2block[bname]
+            b = filter(lambda i: not ("op" in i and i["op"] == "phi"), b)
+            blocks2.append(b)
+        func_blocks.append(blocks2)
+
+    for i, func in enumerate(prog["functions"]):
+        func["instrs"] = [instr for block in func_blocks[i] for instr in block]
+
+    return json.dumps(prog)
+
 
 
 def to_ssa(prog):

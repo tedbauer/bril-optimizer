@@ -1,0 +1,15 @@
+@main {
+.entry:
+  x: int = const 1;
+.cond:
+  b: bool = const true;
+  br b .end .body;
+.body:
+  print x;
+  v: int = const 2;
+  jmp .b1;
+.b1:
+  jmp .cond;
+.end:
+  print x;
+}
