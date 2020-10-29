@@ -273,6 +273,8 @@ def blockify(prog):
 
 if __name__ == "__main__":
     prog = json.loads(sys.stdin.read())
+    """
+
     if sys.argv[1] == "lvn":
         lvn(prog)
         print(json.dumps(dce1(dce2(prog))))
@@ -282,4 +284,4 @@ if __name__ == "__main__":
             blocks += form_blocks(func)
 
         reaching_defs(blocks, gen_cfg(blocks))
-
+    """

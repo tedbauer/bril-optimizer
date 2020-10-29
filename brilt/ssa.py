@@ -3,10 +3,6 @@ from brilt.dom_utils import gen_dom_frontier, gen_dom_tree, find_doms
 
 import json
 
-# TODO:
-# Convert out of SSA
-# handle different types for phi nodes
-
 def gen_fresh_name(prefix, blocks):
     c = 0
     name = None
