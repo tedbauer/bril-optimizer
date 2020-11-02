@@ -86,17 +86,18 @@ def find_li_instrs(rdefs, name2def, name2block, loop_body):
     li_instrs = set()
     num_defs = dict()
     for bname in loop_body:
-        for i, instr in enumerate(name2block[bname]):
+        start = 1 if "label" in name2block[bname][0] else 0
+        for i, instr in enumerate(name2block[bname][start:]):
             if "args" in instr:
                 is_li = True
                 for arg in instr["args"]:
                     if arg not in num_defs:
                         num_defs[arg] = 0
-                    if arg != "op1" and arg != "op2":
-                        defblocks = defining_blocks(rdefs, name2def, bname, arg)
-                        conda = len(defblocks.intersection(loop_body)) == 0
-                        condb = num_defs[arg] == 1 and bname + "i" + str(i) not in li_instrs
-                        is_li = is_li and (conda or condb)
+                    #FIXME: something about args are weird here?
+                    defblocks = defining_blocks(rdefs, name2def, bname, arg)
+                    conda = len(defblocks.intersection(loop_body)) == 0
+                    condb = num_defs[arg] == 1 and bname + "i" + str(i) not in li_instrs
+                    is_li = is_li and (conda or condb)
                 if is_li:
                     li_instrs.add(bname + "i" + str(i))
     return li_instrs
@@ -115,11 +116,16 @@ def move_to_preheaders(backedge, cfg, ordered_bnames, blocks, name2def, li_instr
     entry_preds = find_preds(entry_bname, cfg)
     preheader = [{'label': preheader_name}]
 
+    #FIXME: multiple deletions can break this
     for instr in li_instrs:
+        #print(instr)
+        #print(name2def)
+        #print(name2block[bname])
         preheader.append(name2def[instr])
         bname = instr[:instr.index("i")]
         i_idx = int(instr[instr.index("i")+1:])
-        del name2block[bname][i_idx]
+        offset = 1 if "label" in name2block[bname][0] else 0
+        del name2block[bname][i_idx+offset]
 
     for pred in entry_preds:
         cfg[pred] = preheader
@@ -132,7 +138,6 @@ def move_to_preheaders(backedge, cfg, ordered_bnames, blocks, name2def, li_instr
 
     blocks.insert(ordered_bnames.index(entry_bname), preheader)
     ordered_bnames.insert(ordered_bnames.index(entry_bname), preheader)
-
 
 
 def licm(blocks):
