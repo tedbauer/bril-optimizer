@@ -167,6 +167,7 @@ def licm(blocks):
 
         unsafe = set()
         for instr in li_instrs:
+            # Check that there's only one definition in the loop body.
             count = 0
             dest = name2def[instr]["dest"]
             for bname in loop_body:
@@ -175,6 +176,41 @@ def licm(blocks):
                         count += 1
             if count > 1:
                 unsafe.add(instr)
+
+            # Check that every use in the loop body comes from instr.
+            for bname in loop_body:
+                for other_instr in name2block[bname]:
+                    if "args" in other_instr:
+                        for arg in other_instr["args"]:
+                            if arg == name2def[instr]["dest"]:
+                                defblocks = defining_blocks(rdefs, name2def, bname, arg)
+
+                                # The only defining block should be the block
+                                # that instr is in. (Before the move to the preheader.)
+                                if defblocks != {instr[:instr.index("i")]}:
+                                    unsafe.add(instr)
+
+            # Check that there are no uses after the loop.
+            
+            # Find exits.
+            exits = set()
+            for node in cfg:
+                if len(set(cfg[node]).difference(loop_body)) > 0:
+                    exits.add(node)
+            
+            for exit_ in exits:
+                queue = [exit_]
+                visited = set()
+                while queue:
+                    curr_node = queue.pop()
+                    if curr_node not in visited:
+                        visited.add(curr_node)
+                        for n in cfg[curr_node]:
+                            if n not in loop_body: queue.append(n)
+
+                        for i in name2block[curr_node]:
+                            if "args" in i and name2def[instr]["dest"] in i["args"]:
+                                unsafe.add(instr)
 
 
 
