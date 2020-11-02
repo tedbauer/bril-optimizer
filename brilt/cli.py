@@ -16,23 +16,26 @@ def find_preds(bname, cfg):
 
 def reaching_defs(blocks, cfg):
 
-    c = 0
     name2def = dict()
 
     # TODO: stick this in a function
     name2block = collections.OrderedDict()
     for block in blocks:
         inames = []
+        if 'label' in block[0]:
+            bname = block[0]['label']
+        else:
+            bname = gen_fresh_block_name(name2block)
+
+        c = 0
         for instr in block:
             if "label" not in instr:
-                iname = "i" + str(c)
+                iname = bname + "i" + str(c)
                 name2def[iname] = instr
                 inames.append(iname)
                 c += 1
-        if 'label' in block[0]:
-            name2block[block[0]['label']] = inames
-        else:
-            name2block[gen_fresh_block_name(name2block)] = inames
+
+        name2block[bname] = inames
 
     in_ = {list(name2block)[0]: set()}
     out = dict()
@@ -62,9 +65,7 @@ def reaching_defs(blocks, cfg):
         if out != old_out:
             worklist += cfg[bname]
 
-    print(out)
-    for i in name2def:
-        print(i + ": " + str(name2def[i]))
+    return out, name2def
 
 
 def gen_fresh_block_name(m):
@@ -270,6 +271,7 @@ def blockify(prog):
     for func in prog["functions"]:
         blocks += form_blocks(func)
     return blocks
+
 
 if __name__ == "__main__":
     prog = json.loads(sys.stdin.read())

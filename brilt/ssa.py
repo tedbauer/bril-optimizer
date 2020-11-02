@@ -33,8 +33,6 @@ def rename(bname, block, blocks, stack, dom_tree, cfg, name2block, varz):
             old_name = instr["dest"]
             pop_times[old_name] += 1
             new_name = gen_fresh_name(old_name, blocks)
-            #print("overwriting old name " + old_name + " with new name " + new_name)
-            #if new_name == "v29.1": print(block)
             instr["dest"] = new_name
             stack[old_name].append(new_name)
 
