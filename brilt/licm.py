@@ -102,6 +102,39 @@ def find_li_instrs(rdefs, name2def, name2block, loop_body):
     return li_instrs
 
 
+def move_to_preheaders(backedge, cfg, ordered_bnames, blocks, name2def, li_instrs, preheader_name, name2block):
+    """
+    Mutates blocks and ordered_bnames, inserting a preheader
+    block before the entry of the natural loop formed around
+    backedge and moving li_instrs into this preheader. (The preheader
+    block will be named preheader_name.)
+    TODO: remake this dumb function that has 100 arguments
+    """
+
+    entry_bname = backedge[1]
+    entry_preds = find_preds(entry_bname, cfg)
+    preheader = [{'label': preheader_name}]
+
+    for instr in li_instrs:
+        preheader.append(name2def[instr])
+        bname = instr[:instr.index("i")]
+        i_idx = int(instr[instr.index("i")+1:])
+        del name2block[bname][i_idx]
+
+    for pred in entry_preds:
+        cfg[pred] = preheader
+    
+    name2block[preheader_name] = preheader
+    cfg[preheader_name] = entry_bname
+
+    cfg[preheader_name] = name2block[entry_bname]
+    name2block[entry_bname] = preheader
+
+    blocks.insert(ordered_bnames.index(entry_bname), preheader)
+    ordered_bnames.insert(ordered_bnames.index(entry_bname), preheader)
+
+
+
 def licm(blocks):
     """
     Mutates blocks, moving all loop-invariant
@@ -112,6 +145,7 @@ def licm(blocks):
     start_bname = "x0" if 'label' not in blocks[0] else blocks[0]['label']
 
     backedges = find_backedges(cfg, start_bname)
+    p = 0
     for backedge in backedges:
         loop_body = find_nat_loop_body(cfg, backedge)
 
@@ -131,29 +165,31 @@ def licm(blocks):
 
         li_instrs = find_li_instrs(rdefs, name2def, name2block, loop_body)
 
-        entry_bname = backedge[1]
-        entry_preds = find_preds(entry_bname, cfg)
-        preheader_name = "p0"
-        preheader = [{'label': preheader_name}]
-
+        unsafe = set()
         for instr in li_instrs:
-            preheader.append(name2def[instr])
-            bname = instr[:instr.index("i")]
-            i_idx = int(instr[instr.index("i")+1:])
-            del name2block[bname][i_idx]
+            count = 0
+            dest = name2def[instr]["dest"]
+            for bname in loop_body:
+                for other_instr in name2block[bname]:
+                    if "dest" in other_instr and other_instr["dest"] == dest:
+                        count += 1
+            if count > 1:
+                unsafe.add(instr)
 
-        for pred in entry_preds:
-            cfg[pred] = preheader
-        
-        name2block[preheader_name] = preheader
-        cfg[preheader_name] = entry_bname
 
-        cfg[preheader_name] = name2block[entry_bname]
-        name2block[entry_bname] = preheader
 
-        blocks.insert(ordered_bnames.index(entry_bname), preheader)
-        ordered_bnames.insert(ordered_bnames.index(entry_bname), preheader)
-
+        preheader_name = "p" + str(p)
+        p += 1
+        move_to_preheaders(
+            backedge,
+            cfg,
+            ordered_bnames,
+            blocks,
+            name2def,
+            li_instrs.difference(unsafe),
+            preheader_name,
+            name2block
+        )
 
 def licm_prog(prog):
 
