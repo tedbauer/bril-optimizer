@@ -68,7 +68,7 @@ def defining_blocks(rdefs, name2def, bname, varname):
     defs = set()
     for defname in rdefs[bname]:
         if "dest" in name2def[defname] and name2def[defname]["dest"] == varname:
-            defs.add(defname[:defname.index("i")])
+            defs.add(defname[:defname.index("|")])
     return defs
 
 
@@ -88,7 +88,7 @@ def find_li_instrs(rdefs, name2def, name2block, loop_body):
     for bname in loop_body:
         start = 1 if "label" in name2block[bname][0] else 0
         for i, instr in enumerate(name2block[bname][start:]):
-            if "args" in instr:
+            if "args" in instr and "dest" in instr:
                 is_li = True
                 for arg in instr["args"]:
                     if arg not in num_defs:
@@ -96,10 +96,10 @@ def find_li_instrs(rdefs, name2def, name2block, loop_body):
                     #FIXME: something about args are weird here?
                     defblocks = defining_blocks(rdefs, name2def, bname, arg)
                     conda = len(defblocks.intersection(loop_body)) == 0
-                    condb = num_defs[arg] == 1 and bname + "i" + str(i) not in li_instrs
+                    condb = num_defs[arg] == 1 and bname + "|" + str(i) not in li_instrs
                     is_li = is_li and (conda or condb)
                 if is_li:
-                    li_instrs.add(bname + "i" + str(i))
+                    li_instrs.add(bname + "|" + str(i))
     return li_instrs
 
 
@@ -122,19 +122,16 @@ def move_to_preheaders(backedge, cfg, ordered_bnames, blocks, name2def, li_instr
         #print(name2def)
         #print(name2block[bname])
         preheader.append(name2def[instr])
-        bname = instr[:instr.index("i")]
-        i_idx = int(instr[instr.index("i")+1:])
+        bname = instr[:instr.index("|")]
+        i_idx = int(instr[instr.index("|")+1:])
         offset = 1 if "label" in name2block[bname][0] else 0
         del name2block[bname][i_idx+offset]
 
     for pred in entry_preds:
-        cfg[pred] = preheader
+        cfg[pred] = [preheader_name]
     
     name2block[preheader_name] = preheader
-    cfg[preheader_name] = entry_bname
-
-    cfg[preheader_name] = name2block[entry_bname]
-    name2block[entry_bname] = preheader
+    cfg[preheader_name] = [entry_bname]
 
     blocks.insert(ordered_bnames.index(entry_bname), preheader)
     ordered_bnames.insert(ordered_bnames.index(entry_bname), preheader)
@@ -192,7 +189,7 @@ def licm(blocks):
 
                                 # The only defining block should be the block
                                 # that instr is in. (Before the move to the preheader.)
-                                if defblocks != {instr[:instr.index("i")]}:
+                                if defblocks != {instr[:instr.index("|")]}:
                                     unsafe.add(instr)
 
             # Check that there are no uses after the loop.

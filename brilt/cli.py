@@ -30,7 +30,7 @@ def reaching_defs(blocks, cfg):
         c = 0
         for instr in block:
             if "label" not in instr:
-                iname = bname + "i" + str(c)
+                iname = bname + "|" + str(c)
                 name2def[iname] = instr
                 inames.append(iname)
                 c += 1
