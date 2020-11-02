@@ -1,4 +1,7 @@
-from brilt.cli import find_preds, reaching_defs, gen_cfg, blockify
+import json
+
+from brilt.cli import find_preds, reaching_defs, gen_cfg, form_blocks
+
 
 def find_backedges(cfg, entry):
     """ 
@@ -6,7 +9,6 @@ def find_backedges(cfg, entry):
     The vertice pairs are directed, so (vx, vy) represents
     the edge vx -> vy.
     """
-    print(cfg)
 
     visited = set()
     backedges = []
@@ -100,26 +102,64 @@ def find_li_instrs(rdefs, name2def, name2block, loop_body):
     return li_instrs
 
 
-def licm(prog):
+def licm(blocks):
     """
-    Returns a new prog with all loop-invariant
-    instructions moved to loop preheaders.
+    Mutates blocks, moving all loop-invariant
+    instructions to loop preheaders.
     """
-    blocks = blockify(prog)
+
     cfg = gen_cfg(blocks)
+    start_bname = "x0" if 'label' not in blocks[0] else blocks[0]['label']
 
-    backedges = find_backedges(cfg, "x0")
-    loop_body = find_nat_loop_body(cfg, backedges[0])
+    backedges = find_backedges(cfg, start_bname)
+    for backedge in backedges:
+        loop_body = find_nat_loop_body(cfg, backedge)
 
-    rdefs, name2def = reaching_defs(blocks, cfg)
+        rdefs, name2def = reaching_defs(blocks, cfg)
 
-    name2block = dict()
-    for block in blocks:
-        if 'label' in block[0]:
-            name2block[block[0]['label']] = block
-        else:
-            name2block[gen_fresh_block_name(name2block)] = block
+        ordered_bnames = []
+        name2block = dict()
+        for block in blocks:
+            
+            if 'label' in block[0]:
+                name = block[0]['label']
+            else:
+                name = gen_fresh_block_name(name2block)
+            
+            ordered_bnames.append(name)
+            name2block[name] = block
 
-    li_instrs = find_li_instrs(rdefs, name2def, name2block, loop_body)
-    print(li_instrs)
+        li_instrs = find_li_instrs(rdefs, name2def, name2block, loop_body)
 
+        entry_bname = backedge[1]
+        entry_preds = find_preds(entry_bname, cfg)
+        preheader_name = "p0"
+        preheader = [{'label': preheader_name}]
+
+        for instr in li_instrs:
+            preheader.append(name2def[instr])
+            bname = instr[:instr.index("i")]
+            i_idx = int(instr[instr.index("i")+1:])
+            del name2block[bname][i_idx]
+
+        for pred in entry_preds:
+            cfg[pred] = preheader
+        
+        name2block[preheader_name] = preheader
+        cfg[preheader_name] = entry_bname
+
+        cfg[preheader_name] = name2block[entry_bname]
+        name2block[entry_bname] = preheader
+
+        blocks.insert(ordered_bnames.index(entry_bname), preheader)
+        ordered_bnames.insert(ordered_bnames.index(entry_bname), preheader)
+
+
+def licm_prog(prog):
+
+    for func in prog["functions"]:
+        blocks = form_blocks(func)
+        licm(blocks)
+        func["instrs"] = [instr for block in blocks for instr in block]
+    
+    print(json.dumps(prog))
