@@ -1,6 +1,7 @@
 import json
 
 from brilt.cli import find_preds, reaching_defs, gen_cfg, form_blocks
+from brilt.dom_utils import find_doms
 
 
 def find_backedges(cfg, entry):
@@ -12,6 +13,7 @@ def find_backedges(cfg, entry):
 
     visited = set()
     backedges = []
+    doms = find_doms(cfg)
     
     curr_node = entry
     queue = cfg[entry].copy()
@@ -22,7 +24,8 @@ def find_backedges(cfg, entry):
             visited.add(curr_node)
             queue += cfg[curr_node]
         else:
-            backedges.append((old_node, curr_node))
+            if curr_node in doms[old_node]:
+                backedges.append((old_node, curr_node))
     
     return backedges
 
@@ -38,7 +41,7 @@ def find_nat_loop_body(cfg, backedge):
     queue = [backedge[0]]
     while queue:
         curr_node = queue.pop()
-        if curr_node not in loop_body:
+        if curr_node not in loop_body and curr_node != backedge[1]:
             loop_body.append(curr_node)
             queue += find_preds(curr_node, cfg)
     
@@ -111,7 +114,7 @@ def move_to_preheaders(backedge, cfg, ordered_bnames, blocks, name2def, li_instr
     block will be named preheader_name.)
     TODO: remake this dumb function that has 100 arguments
     """
-
+    
     entry_bname = backedge[1]
     entry_preds = find_preds(entry_bname, cfg)
     preheader = [{'label': preheader_name}]
@@ -144,12 +147,15 @@ def licm(blocks):
     """
 
     cfg = gen_cfg(blocks)
-    start_bname = "x0" if 'label' not in blocks[0] else blocks[0]['label']
+    start_bname = "x0" if 'label' not in blocks[0][0] else blocks[0][0]['label']
 
     backedges = find_backedges(cfg, start_bname)
-    p = 0
+    loop_bodies = []
     for backedge in backedges:
-        loop_body = find_nat_loop_body(cfg, backedge)
+        body = find_nat_loop_body(cfg, backedge)
+        loop_bodies.append(body)
+    p = 0
+    for idx, backedge in enumerate(backedges):
 
         rdefs, name2def = reaching_defs(blocks, cfg)
 
@@ -165,14 +171,14 @@ def licm(blocks):
             ordered_bnames.append(name)
             name2block[name] = block
 
-        li_instrs = find_li_instrs(rdefs, name2def, name2block, loop_body)
+        li_instrs = find_li_instrs(rdefs, name2def, name2block, loop_bodies[idx])
 
         unsafe = set()
         for instr in li_instrs:
             # Check that there's only one definition in the loop body.
             count = 0
             dest = name2def[instr]["dest"]
-            for bname in loop_body:
+            for bname in loop_bodies[idx]:
                 for other_instr in name2block[bname]:
                     if "dest" in other_instr and other_instr["dest"] == dest:
                         count += 1
@@ -180,7 +186,7 @@ def licm(blocks):
                 unsafe.add(instr)
 
             # Check that every use in the loop body comes from instr.
-            for bname in loop_body:
+            for bname in loop_bodies[idx]:
                 for other_instr in name2block[bname]:
                     if "args" in other_instr:
                         for arg in other_instr["args"]:
@@ -197,7 +203,7 @@ def licm(blocks):
             # Find exits.
             exits = set()
             for node in cfg:
-                if len(set(cfg[node]).difference(loop_body)) > 0:
+                if len(set(cfg[node]).difference(loop_bodies[idx])) > 0:
                     exits.add(node)
             
             for exit_ in exits:
@@ -208,12 +214,11 @@ def licm(blocks):
                     if curr_node not in visited:
                         visited.add(curr_node)
                         for n in cfg[curr_node]:
-                            if n not in loop_body: queue.append(n)
+                            if n not in loop_bodies[idx]: queue.append(n)
 
                         for i in name2block[curr_node]:
                             if "args" in i and name2def[instr]["dest"] in i["args"]:
                                 unsafe.add(instr)
-
 
 
         preheader_name = "p" + str(p)
