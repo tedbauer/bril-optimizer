@@ -1,0 +1,31 @@
+@main(a: int) {
+
+  ten: int = const 10;
+
+  b1: int = const 1;
+  b2: int = const 2;
+  b3: int = const 3;
+  b4: int = const 4;
+  b5: int = const 5;
+
+  s: int = const 0;
+
+  cond: bool = lt a ten;
+
+  br cond .then .else;
+
+.then:
+  s: int = add b1 s;
+  s: int = add b2 s;
+  s: int = add b3 s;
+  s: int = add b4 s;
+  s: int = add b5 s;
+  print s;
+  jmp .done;
+
+.else:
+  print ten;
+
+.done:
+  ret;
+}

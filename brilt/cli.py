@@ -273,6 +273,11 @@ def blockify(prog):
     return blocks
 
 
+def lvn_prog(prog):
+    lvn(prog)
+    print(json.dumps(dce1(dce2(prog))))
+
+
 if __name__ == "__main__":
     prog = json.loads(sys.stdin.read())
     """
