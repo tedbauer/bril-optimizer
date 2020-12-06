@@ -275,7 +275,7 @@ def blockify(prog):
 
 def lvn_prog(prog):
     lvn(prog)
-    print(json.dumps(dce1(dce2(prog))))
+    return dce1(dce2(prog))
 
 
 if __name__ == "__main__":

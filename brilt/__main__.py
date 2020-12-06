@@ -11,7 +11,7 @@ from brilt.gen_spec import gen_spec_prog
 if __name__ == "__main__":
     #prog = json.loads(sys.stdin.read())
     prog = sys.stdin.read()
-    gen_spec_prog(prog, 4)
+    print(json.dumps(gen_spec_prog(prog, [str(10)])))
     #lvn_prog(prog)
     #cfg = gen_cfg(blockify(prog))
     #backedges = find_backedges(cfg, "x0")
